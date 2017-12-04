@@ -37,7 +37,7 @@ au_logical:
 	beq $a2, '+', add_logical
 	beq $a2, '-', sub_logical
 	beq $a2, '*', mul_logical
-	beq $a2, '/', div_logical
+	beq $a2, '/', exit
 	
 mul_logical:
 	jal mul_signed
@@ -47,40 +47,18 @@ div_logical:
 	jal div_signed
 	j exit
 
-#ADD:
-	
-#	jr	$ra
 
-#SUB:
-	
-#	jr	$ra
-
-#MUL:
-#	lw	$a0, 28($sp)
-#	lw	$a2, 24($sp)
-#	lw	$a1, 20($sp)
-#	lw	$a3, 16($sp)
-#	lw	$fp, 12($sp)
-#	lw 	$ra, 8($sp)
-#	addi	$sp, $sp, 28
-#	jr $ra 
-#	jr	$ra
-
-#DIV:
-#	lw	$a0, 28($sp)
-#	lw	$a2, 24($sp)
-#	lw	$a1, 20($sp)
-#	lw	$a3, 16($sp)
-#	lw	$fp, 12($sp)
-#	lw 	$ra, 8($sp)
-#	addi	$sp, $sp, 28
-#	jr $ra 
-#	jr	$ra
-
-#ADDITION ********************************
 add_logical:
 #store frame
-
+	addi	$sp, $sp, -28
+	sw	$a0, 28($sp)
+	sw	$a2, 24($sp)
+	sw	$a1, 20($sp)
+	sw	$a3, 16($sp)
+	sw	$fp, 12($sp)
+	sw 	$ra, 8($sp)
+	addi	$fp, $sp, 28
+	
 	lw $a2, addition
 	jal add_sub_logical
 #	move $v1, $a3 	#move a3 to v1. move carry to v1
@@ -90,7 +68,14 @@ add_logical:
 sub_logical:
 
 #store frame
-
+	addi	$sp, $sp, -28
+	sw	$a0, 28($sp)
+	sw	$a2, 24($sp)
+	sw	$a1, 20($sp)
+	sw	$a3, 16($sp)
+	sw	$fp, 12($sp)
+	sw 	$ra, 8($sp)
+	addi	$fp, $sp, 28
 	
 	lw $a2, subtraction
 	jal add_sub_logical
@@ -164,13 +149,15 @@ twos_complement_if_neg:
     sw    $ra, 12($sp)
     sw    $a0,  8($sp)
     addi    $fp, $sp, 16 
+    move    $v0 , $a0 
     bge     $a0, 0x0, twos_complement_if_neg_end #if a0 > 0, don't find the 2's comp
     jal    twos_complement
     j twos_complement_if_neg_end
     
-    
+    # if $a0  = 5 
+    # jumps to end 
 twos_complement_if_neg_end:
-
+	
     lw    $fp, 16($sp)
     lw    $ra, 12($sp)
     lw    $a0,  8($sp)
@@ -192,8 +179,8 @@ twos_complement:
 
     not    $a0, $a0        # $a0 = ~$a0
     addi     $a1, $zero, 1        # $a1 = 1
-    li    $a2, '+'
-    jal    au_logical        #add a0 + a1. ~a0 + 1
+    
+    jal    add_logical        #add a0 + a1. ~a0 + 1
 
 #restore frame
     lw    $fp, 24($sp)
@@ -251,14 +238,12 @@ twos_complement_64bit:
     	not $a1, $a1   	#a1 = ~a1
     	move $s7, $a1  	#s0 = a1 = ~a1. to accomodate since add_logical takes a0 and a1
     	addi $a1, $zero, 1	#a1 = 1
-    	li	$a2, '+'
-	jal 	au_logical
+	jal 	add_logical
 #    	jal add_logical  	#add a0 + a1
     	move $a1, $s7	#move a1 from s7
     	move $s7, $v0  	#move v0 (sum) to s7. s7 = sum
     	move $a0, $v1 	#move carry to become arg
-    	li	$a2, '+'
-	jal 	au_logical
+	jal 	add_logical
 #    	jal add_logical 	#add a0 + a1
     	move $v1, $v0	#move v0 (sum) to v1 (hi)
     	move $v0, $s7	#move s7 (sum) to v0 (lo)
@@ -298,41 +283,31 @@ mul_unsigned:
 	move $s3, $a0		#multiplicand. $t3 = M
 	j LOOP_MULT
 	
-#restore frame
-	lw	$a2, 40($sp)
-	lw	$s0, 36($sp)
-	lw	$s1, 32($sp)
-	lw	$s2, 28($sp)
-	lw	$s3, 24($sp)
-	lw	$a0, 20($sp)
-	lw	$a1, 16($sp)
-	lw	$fp, 12($sp)
-	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 40
-	
-	jr $ra
 
 LOOP_MULT:
-	extract_nth_bit($t4, $t2, $zero)   #extract 0th bit of L and set it to $t4
-	move $t5, $a0 			   #t5 = a0 = MCND 
-	move $a0, $t4			   #a0 = t4 = 0th bit of L
+	extract_nth_bit($t4, $s2, $zero)   #extract 0th bit of L and set it to $t4  # r = $t4
+	move $a0, $t4			   #a0 = t4 = 0th bit of L # move r into $a0 arg for bit replicator
 	jal bit_replicator 		   #replicate 0th bit 32 times 
-	move $t4, $v0 			   #t4 = R
-	and $t7, $t3, $t4 		   # X = M & R 
+	move $t4, $v0 			   #t4 = R 
+	and $t7, $s3, $t4 		   # X = M & R 
 	move $a0, $s1			   # a0 = H
 	move $a1, $t7			   # a1 = X
-	li	$a2, '+'
-	jal 	au_logical
+
+	jal 	add_logical
 #	jal add_logical			   # H + X
 	move $s1, $v0			   # v0 holds the result of the previous add_logical H = H + X	
 #	print_reg_int($v0)
 #	print_reg_int($s1)
 	addi $t6, $zero, 1		   # $t6 = 1
 	addi $t4, $zero, 31		   # $t4 = 31
-	srlv $s2, $s2, $t6		   # L = L >> 1
+	#srlv $s2, $s2, $t6		   # L = L >> 1
+	srl $s2, $s2 , 1
 	extract_nth_bit($t8, $s1, $zero)   # $t8 = H[0]
 	insert_to_nth_bit($s2, $t4, $t8, $t9)  # L[31] = H[0]
-	srlv $s1, $s1, $t6		   # H = H >> 1
+	
+	
+	# srlv $s1, $s1, $t6		   # H = H >> 1
+	srl $s1, $s1 , 1
 #	print_reg_int($s1)
 	addi $s0, $s0, 1		   # increment loop counter. I = I + 1
 #	print_reg_int($s2)
@@ -340,57 +315,6 @@ LOOP_MULT:
 	beq $s0, 32, mul_unsigned_end	   #if I == 32 end of loop and exit
 	j LOOP_MULT			   #loop again otherwise
 	
-
-
-mul_signed: 
-
-#store frame
-	addi	$sp, $sp, -32
-	sw	$s6, 32($sp)
-	sw	$s5, 28($sp)
-	sw 	$s4, 24($sp)
-	sw	$a0, 20($sp)
-	sw	$a1, 16($sp)
-	sw	$fp, 12($sp)
-	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 32
-
-
-#a0 : multiplicand
-#a1 : multiplier
-	move $s4, $a0	#a0 is N1. s4 is original a0, not to be changed
-	move $s5, $a1	#a1 is N2. s5 is original a1, not to be changed
-	jal twos_complement_if_neg	#N1 two's comp
-	move $t0, $v0 		#two's comp N1 into temporary register
-	move $a0, $a1		#move N2 to arg (a0) of twos_comp
-	jal twos_complement_if_neg
-	move $a1, $v0		#two's comp N2 into N2
-	move $a0, $t0		#move N1 back to a0
-	jal mul_unsigned
-	addi $t7, $zero, 31
-	extract_nth_bit($t9, $s4, $t7)	#$t9 = $s4[31]. s4 is original a0
-	extract_nth_bit($t8, $s5, $t7)	#$t8 = $s5[31]. s5 is original a1
-	xor $s6, $t9, $t8  		#t9 XOR t8. s6 = S
-	bne $s6, 1, mul_signed_end
-	move $a0, $v0 	#a0 = Rlo
-	move $a1, $v1	#a1 = Rhi
-	jal twos_complement_64bit	#if S = 1 find two's comp of Rhi and Rlo
-	j mul_signed_end
-						
-mul_signed_end:
-	
-	#restore frame
-	lw	$s6, 32($sp)
-	lw	$s5, 28($sp)
-	lw	$s4, 24($sp)
-	lw	$a0, 20($sp)
-	lw	$a1, 16($sp)
-	lw	$fp, 12($sp)
-	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 32
-	
-	jr $ra
-
 mul_unsigned_end:
 	#lo to $v0 and hi to $v1
 	
@@ -413,6 +337,69 @@ mul_unsigned_end:
 	
 	
 	jr $ra
+
+mul_signed: 
+
+#store frame
+	addi	$sp, $sp, -44
+	sw	$s1, 44($sp)
+	sw	$s2, 40($sp)
+	sw	$s3, 36($sp)
+	sw	$s6, 32($sp)
+	sw	$s5, 28($sp)
+	sw 	$s4, 24($sp)
+	sw	$a0, 20($sp)
+	sw	$a1, 16($sp)
+	sw	$fp, 12($sp)
+	sw 	$ra, 8($sp)
+	addi	$fp, $sp, 44
+
+
+#a0 : multiplicand
+#a1 : multiplier
+	move $s4, $a0	#a0 is N1. s4 is original a0, not to be changed
+	move $s5, $a1	#a1 is N2. s5 is original a1, not to be changed
+	jal twos_complement_if_neg	#N1 two's comp
+	move $s3, $v0 		#two's comp N1 into temporary register 
+	move $a0, $a1		#move N2 to arg (a0) of twos_comp
+	jal twos_complement_if_neg
+	move $a1, $v0		#two's comp N2 into N2
+	move $a0, $s3		#move N1 back to a0
+	jal mul_unsigned
+	
+	addi $t7, $zero, 31
+	
+	move $a0, $v0 	#a0 = Rlo
+	move $a1, $v1	#a1 = Rhi
+	
+	extract_nth_bit($s2, $s4, $t7)	#$t9 = $s4[31]. s4 is original a0
+	extract_nth_bit($s1, $s5, $t7)	#$t8 = $s5[31]. s5 is original a1
+	
+	xor $s6, $s2, $s1		#t9 XOR t8. s6 = S
+	bne $s6, 1, mul_signed_end
+	
+	jal twos_complement_64bit	#if S = 1 find two's comp of Rhi and Rlo
+	
+	j mul_signed_end
+						
+mul_signed_end:
+	
+	#restore frame
+	lw	$s1, 44($sp)
+	lw	$s2, 40($sp)
+	lw	$s3, 36($sp)
+	lw	$s6, 32($sp)
+	lw	$s5, 28($sp)
+	lw	$s4, 24($sp)
+	lw	$a0, 20($sp)
+	lw	$a1, 16($sp)
+	lw	$fp, 12($sp)
+	lw 	$ra, 8($sp)
+	addi	$sp, $sp, 44
+	
+	jr $ra
+
+
 	
 
 # DIVISION ****************************************************************************
@@ -438,8 +425,7 @@ div_unsigned:
 	
 	
 	
-	addi $s7, $zero, 0 	# $t0 = I = 0
-#	print_reg_int($t0)
+	addi $s7, $zero, 0 	# s7  = I = 0
 	addi $t1, $zero, 0	# $t1 = R = 0
 	move $s0, $a0
 	move $s1, $a1
