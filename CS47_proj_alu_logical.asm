@@ -466,12 +466,11 @@ increment_i:
 
 div_signed:
 #store frame
-	addi	$sp, $sp, -64
-	sw	$t2, 64($sp)
-	sw	$s7, 60($sp)
-	sw	$s2, 56($sp)
-	sw	$s6, 52($sp)
-	sw	$t4, 48($sp)
+	addi	$sp, $sp, -60
+	sw	$s4, 60($sp)
+	sw	$s7, 56($sp)
+	sw	$s2, 52($sp)
+	sw	$s6, 48($sp)
 	sw	$s5, 44($sp)
 	sw	$s3, 40($sp)
 	sw	$s1, 36($sp)
@@ -480,15 +479,15 @@ div_signed:
 	sw	$a0, 24($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 64
+	addi	$fp, $sp, 60
 	move $s0, $a0	#s0 is a0, don't change it
 	move $s1, $a1	#s1 is a1, don't change it
 	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
-	move $t2, $v0	#N1
+	move $s4, $v0	#N1
 	move $a0, $a1	#put a1 in arg position
 	jal twos_complement_if_neg	#find two's comp of a1
 	move $a1, $v0	#a1 is 2's complement N2
-	move $a0, $t2	#a0 is 2's complement N1
+	move $a0, $s4	#a0 is 2's complement N1
 	jal div_unsigned 	#neither a0 or a1 are signed now, safe to do
 	move $s2, $v0		#s2 = Q
 	move $s3, $v1		#s3 = R
@@ -519,11 +518,10 @@ div_signed_end:
 	move $v1, $s3	#remainder
 	
 	#restore frame
-	lw	$t2, 64($sp)
-	lw	$s7, 60($sp)
-	lw	$s2, 56($sp)
-	lw	$s6, 52($sp)
-	lw	$t4, 48($sp)
+	lw	$s4, 60($sp)
+	lw	$s7, 56($sp)
+	lw	$s2, 52($sp)
+	lw	$s6, 48($sp)
 	lw	$s5, 44($sp)
 	lw	$s3, 40($sp)
 	lw	$s1, 36($sp)
@@ -532,7 +530,7 @@ div_signed_end:
 	lw	$a0, 24($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 64
+	addi	$sp, $sp, 60
 	
 	jr $ra
 
