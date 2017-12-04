@@ -36,8 +36,12 @@ au_logical:
 	
 	beq $a2, '+', add_logical
 	beq $a2, '-', sub_logical
-	beq $a2, '*', mul_signed
+	beq $a2, '*', mul_logical
 	beq $a2, '/', DIV
+	
+mul_logical:
+	jal mul_signed
+	j exit
 
 #ADD:
 	
@@ -72,15 +76,7 @@ DIV:
 #ADDITION ********************************
 add_logical:
 #store frame
-	addi	$sp, $sp, -28
-	sw	$a0, 28($sp)
-	sw	$a2, 24($sp)
-	sw	$a1, 20($sp)
-	sw	$a3, 16($sp)
-	sw	$fp, 12($sp)
-	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 28
-	
+
 	lw $a2, addition
 	jal add_sub_logical
 #	move $v1, $a3 	#move a3 to v1. move carry to v1
@@ -90,14 +86,7 @@ add_logical:
 sub_logical:
 
 #store frame
-	addi	$sp, $sp, -28
-	sw	$a0, 28($sp)
-	sw	$a2, 24($sp)
-	sw	$a1, 20($sp)
-	sw	$a3, 16($sp)
-	sw	$fp, 12($sp)
-	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 28
+
 	
 	lw $a2, subtraction
 	jal add_sub_logical
@@ -168,26 +157,30 @@ exit_add_sub:	#end loop
 twos_complement:
 	
 #store frame
-	addi	$sp, $sp, -20
+	addi	$sp, $sp, -24
+	sw	$a2, 24($sp)
 	sw	$a0, 20($sp)
 	sw	$a1, 16($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 20       
+	addi	$fp, $sp, 24      
 
 
     # $a0 is number to 2's complement 
     # $v0 return 2's complement of $a0
    	not $a0, $a0	#invert a0
     	addi $a1, $zero, 1	#a1 = 1
-    	j add_logical   	#add a0 + a1. ~a0 + 1
+    	li	$a2, '+'
+	jal 	au_logical
+  #  	j add_logical   	#add a0 + a1. ~a0 + 1
 
 #restore frame
+	lw	$a2, 24($sp)
 	lw	$a0, 20($sp)
 	lw	$a1, 16($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 20
+	addi	$sp, $sp, 24
 	
 	jr $ra
 
@@ -215,34 +208,40 @@ twos_complement_if_neg:
 twos_complement_64bit:
 
 #store frame
-	addi	$sp, $sp, -24
+	addi	$sp, $sp, -28
+	sw	$a2, 28($sp)
 	sw	$s7, 24($sp)
 	sw	$a0, 20($sp)
 	sw	$a1, 16($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 24
+	addi	$fp, $sp, 28
 
-
+	
     	not $a0, $a0   	#a0 = ~a0
     	not $a1, $a1   	#a1 = ~a1
     	move $s7, $a1  	#s0 = a1 = ~a1. to accomodate since add_logical takes a0 and a1
     	addi $a1, $zero, 1	#a1 = 1
-    	jal add_logical  	#add a0 + a1
+    	li	$a2, '+'
+	jal 	au_logical
+#    	jal add_logical  	#add a0 + a1
     	move $a1, $s7	#move a1 from s7
     	move $s7, $v0  	#move v0 (sum) to s7. s7 = sum
     	move $a0, $v1 	#move carry to become arg
-    	jal add_logical 	#add a0 + a1
+    	li	$a2, '+'
+	jal 	au_logical
+#    	jal add_logical 	#add a0 + a1
     	move $v1, $v0	#move v0 (sum) to v1 (hi)
     	move $v0, $s7	#move s7 (sum) to v0 (lo)
     
     #restore frame
+    	lw	$a2, 28($sp)
     	lw	$s7, 24($sp)
 	lw	$a0, 20($sp)
 	lw	$a1, 16($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 24
+	addi	$sp, $sp, 28
 	
 	jr $ra
 bit_replicator:
@@ -277,7 +276,8 @@ zero_replicator:
 mul_unsigned:
 
 #store frame
-	addi	$sp, $sp, -36
+	addi	$sp, $sp, -40
+	sw	$a2, 40($sp)
 	sw	$s0, 36($sp)
 	sw	$s1, 32($sp)
 	sw	$s2, 28($sp)
@@ -286,7 +286,7 @@ mul_unsigned:
 	sw	$a1, 16($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 36
+	addi	$fp, $sp, 40
 
 
 #a0 : multiplicand
@@ -298,6 +298,7 @@ mul_unsigned:
 	j LOOP_MULT
 	
 #restore frame
+	lw	$a2, 40($sp)
 	lw	$s0, 36($sp)
 	lw	$s1, 32($sp)
 	lw	$s2, 28($sp)
@@ -306,7 +307,7 @@ mul_unsigned:
 	lw	$a1, 16($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 36
+	addi	$sp, $sp, 40
 	
 	jr $ra
 
@@ -320,7 +321,9 @@ LOOP_MULT:
 	and $t7, $t3, $t4 		   # X = M & R 
 	move $a0, $s1			   # a0 = H
 	move $a1, $t7			   # a1 = X
-	jal add_logical			   # H + X
+	li	$a2, '+'
+	jal 	au_logical
+#	jal add_logical			   # H + X
 	move $s1, $v0			   # v0 holds the result of the previous add_logical H = H + X	
 #	print_reg_int($v0)
 #	print_reg_int($s1)
@@ -397,6 +400,7 @@ mul_unsigned_end:
 	move $v1, $s1		#s1 is hi
 	
 	#restore frame
+	lw	$a2, 40($sp)
 	lw	$s0, 36($sp)
 	lw	$s1, 32($sp)
 	lw	$s2, 28($sp)
@@ -405,7 +409,7 @@ mul_unsigned_end:
 	lw	$a1, 16($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 36
+	addi	$sp, $sp, 40
 	
 	
 	jr $ra
