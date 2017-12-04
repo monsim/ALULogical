@@ -200,6 +200,8 @@ twos_complement_if_neg:
 	sw 	$ra, 8($sp)
 	addi	$fp, $sp, 16
 	
+	
+	subi $a0, $zero, 25
     	blt $a0, $zero, twos_complement #if a0 < 0, go to twos complement
 	
 	#restore frame
@@ -207,6 +209,8 @@ twos_complement_if_neg:
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
 	addi	$sp, $sp, 16
+	
+	jr $ra
 
 twos_complement_64bit:
 
@@ -318,13 +322,18 @@ LOOP_MULT:
 	move $a1, $t7			   # a1 = X
 	jal add_logical			   # H + X
 	move $s1, $v0			   # v0 holds the result of the previous add_logical H = H + X	
+#	print_reg_int($v0)
+#	print_reg_int($s1)
 	addi $t6, $zero, 1		   # $t6 = 1
 	addi $t4, $zero, 31		   # $t4 = 31
 	srlv $s2, $s2, $t6		   # L = L >> 1
 	extract_nth_bit($t8, $s1, $zero)   # $t8 = H[0]
 	insert_to_nth_bit($s2, $t4, $t8, $t9)  # L[31] = H[0]
 	srlv $s1, $s1, $t6		   # H = H >> 1
+#	print_reg_int($s1)
 	addi $s0, $s0, 1		   # increment loop counter. I = I + 1
+#	print_reg_int($s2)
+#	print_reg_int($s1)
 	beq $s0, 32, mul_unsigned_end	   #if I == 32 end of loop and exit
 	j LOOP_MULT			   #loop again otherwise
 	
@@ -382,6 +391,8 @@ mul_signed_end:
 mul_unsigned_end:
 	#lo to $v0 and hi to $v1
 	
+#	print_reg_int($s2)
+#s	print_reg_int($s1)
 	move $v0, $s2		#s2 is lo
 	move $v1, $s1		#s1 is hi
 	
