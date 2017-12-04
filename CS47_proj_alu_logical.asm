@@ -37,7 +37,7 @@ au_logical:
 	beq $a2, '+', add_logical
 	beq $a2, '-', sub_logical
 	beq $a2, '*', mul_logical
-	beq $a2, '/', exit
+	beq $a2, '/', div_logical
 	
 mul_logical:
 	jal mul_signed
@@ -411,9 +411,9 @@ div_unsigned:
 	addi	$sp, $sp, -52
 	sw	$t6, 52($sp)
 	sw	$t4, 48($sp)
-	sw	$t5, 44($sp)
+	sw	$s5, 44($sp)
 	sw	$t3, 40($sp)
-	sw	$t1, 36($sp)
+	sw	$s2, 36($sp)
 	sw	$s7, 32($sp)
 	sw	$a2, 28($sp)
 	sw	$a0, 24($sp)
@@ -426,107 +426,106 @@ div_unsigned:
 	
 	
 	addi $s7, $zero, 0 	# s7  = I = 0
-	addi $t1, $zero, 0	# $t1 = R = 0
-	move $s0, $a0
-	move $s1, $a1
+	addi $s2, $zero, 0	# $s2 = R = 0
+	move $s0, $a0		#dividend (Q)
+	move $s1, $a1		#divisor (D)
 #	print_reg_int($t0)
 	j LOOP_DIV
 	
 LOOP_DIV:
-#	print_reg_int($t0)
-	addi $t3, $zero, 1	# $t3 = 1
-	sllv $t1, $t1, $t3, 	# R = R << 1
+#	addi $t3, $zero, 1	# $t3 = 1
+	sll $s2, $s2, 1 	# R = R << 1
 	addi $t3, $zero, 31	# $t3 = 31
-	extract_nth_bit($t4, $a0, $t3) # $t4 = Q[31]
-	insert_to_nth_bit($t1, $zero, $t4, $t5)
+	extract_nth_bit($t4, $s0, $t3) # $t4 = Q[31]
+	insert_to_nth_bit($s2, $zero, $t4, $t5)
 	addi $t3, $zero, 1
-	sllv $a0, $a0, $t3 	# Q = Q << 1
+	sll $s0, $s0, 1 	# Q = Q << 1
 	move $t6, $a0
-	move $a0, $t1		#move R to a0. D is already a1
-	li $a2, '-'
-	jal au_logical 
+	move $a0, $s2		#move R to a0. D is already a1
+#	li $a2, '-'
+#	jal au_logical 
+	jal sub_logical
 	move $a0, $t6
-	move $t5, $v0		#S = R - D
-	bge $t5, $zero, LABEL_1	#branch if S is greater than 0 
-	j increment_i
+	move $s5, $v0		# s5 = S = R - D
+	bge $s5, $zero, LABEL_1	#branch if S is greater than 0 
+	j increment_i	#if less than, then increment i
 
 				
 LABEL_1:
-	move $t1, $t5 		# R = S
+	move $s2, $s5 		# R = S
 	addi $t3, $zero, 1	# $t3 = 1
-	insert_to_nth_bit($a0, $zero, $t3, $t6)	#insert 1 into LSB of Q 
+	insert_to_nth_bit($s0, $zero, $t3, $t6)	#insert 1 into LSB of Q 
 	j increment_i
 
 		
 increment_i:
  	addi $s7, $s7, 1	# increment i
-	addi $t3, $zero, 32	# $t3 = 32
+#	addi $t3, $zero, 32	# $t3 = 32
 #	print_reg_int($t0)
 	beq $s7, 32, div_unsigned_end 	#end loop if i is 32
 	j LOOP_DIV			#else loop again
 
 
 div_signed:
-	
 #store frame
 	addi	$sp, $sp, -60
-	sw	$t7, 60($sp)
-	sw	$t2, 56($sp)
-	sw	$t6, 52($sp)
+	sw	$s7, 60($sp)
+	sw	$s2, 56($sp)
+	sw	$s6, 52($sp)
 	sw	$t4, 48($sp)
-	sw	$t5, 44($sp)
-	sw	$t3, 40($sp)
-	sw	$t1, 36($sp)
-	sw	$t0, 32($sp)
+	sw	$s5, 44($sp)
+	sw	$s3, 40($sp)
+	sw	$s1, 36($sp)
+	sw	$s0, 32($sp)
 	sw	$a1, 28($sp)
 	sw	$a0, 24($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
 	addi	$fp, $sp, 60
-	move $t0, $a0	#t0 is a0, don't change it
-	move $t1, $a1	#t1 is a1, don't change it
+	move $s0, $a0	#s0 is a0, don't change it
+	move $s1, $a1	#s1 is a1, don't change it
 	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
 	move $t2, $v0	#N1
-	move $a0, $t1	#put t1 in arg position
+	move $a0, $s1	#put s1 in arg position
 	jal twos_complement_if_neg	#find two's comp of a1
-	move $a1, $v0	#a1 is 2's complement N0
+	move $a1, $v0	#a1 is 2's complement N2
 	move $a0, $t2	#a0 is 2's complement N1
 	jal div_unsigned 	#neither a0 or a1 are signed now, safe to do
-	move $t2, $v0		#Q
-	move $t3, $v1		#R
+	move $s2, $v0		#s2 = Q
+	move $s3, $v1		#s3 = R
 	addi $t4, $zero, 31	# $t4 = 31
-	extract_nth_bit($t5, $t0, $t4) 	# $t5 = a0[31]
-	extract_nth_bit($t6, $t1, $t4)	# $t6 = a1[31]
-	xor $t7, $t5, $t6		# S = a0[31] XOR a1[31]
-	move $a0, $t2			# a0 = Q
-	bne $t7, 1, find_r
+	extract_nth_bit($s5, $s0, $t4) 	# $t5 = a0[31]
+	extract_nth_bit($s6, $s1, $t4)	# $t6 = a1[31]
+	xor $s7, $s5, $s6		# S = a0[31] XOR a1[31]
+	move $a0, $s2			# a0 = Q
+	bne $s7, 1, find_r
 	jal twos_complement		#find two's comp of Q if S is 1
-	move $t2, $v0			#set Q as 2's comp of Q
+	move $s2, $v0			#set Q as 2's comp of Q
 	j find_r
 	
 find_r:
-	move $t7, $t5  #S = a0[31]
-	bne $t7, 1, div_signed_end
-	move $a0, $t3
+	move $s7, $s5  #S = a0[31]
+	bne $s7, 1, div_signed_end
+	move $a0, $s3
 	jal twos_complement
-	move $t3, $v0	#set R as 2's comp of R
+	move $s3, $v0	#set R as 2's comp of R
 	j div_signed_end
 	
 
 div_signed_end:
 
-	move $v0, $t2
-	move $v1, $t3
+	move $v0, $s2	#quotient
+	move $v1, $s3	#remainder
 	
 	#restore frame
-	lw	$t7, 60($sp)
-	lw	$t2, 56($sp)
-	lw	$t6, 52($sp)
+	lw	$s7, 60($sp)
+	lw	$s2, 56($sp)
+	lw	$s6, 52($sp)
 	lw	$t4, 48($sp)
-	lw	$t5, 44($sp)
-	lw	$t3, 40($sp)
-	lw	$t1, 36($sp)
-	lw	$t0, 32($sp)
+	lw	$s5, 44($sp)
+	lw	$s3, 40($sp)
+	lw	$s1, 36($sp)
+	lw	$s0, 32($sp)
 	lw	$a1, 28($sp)
 	lw	$a0, 24($sp)
 	lw	$fp, 12($sp)
@@ -538,15 +537,15 @@ div_signed_end:
 
 div_unsigned_end:
 		
-	move $v1, $t1	#remainder
-	move $v0, $a0	#quotient
+	move $v1, $s2	#remainder
+	move $v0, $s0	#quotient
 			
 	#restore frame
 	lw	$t6, 52($sp)
 	lw	$t4, 48($sp)
-	lw	$t5, 44($sp)
+	lw	$s5, 44($sp)
 	lw	$t3, 40($sp)
-	lw	$t1, 36($sp)
+	lw	$s2, 36($sp)
 	lw	$s7, 32($sp)
 	lw	$a2, 28($sp)
 	lw	$a0, 24($sp)
