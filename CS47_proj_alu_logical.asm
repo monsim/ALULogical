@@ -238,13 +238,11 @@ twos_complement_64bit:
     	not $a1, $a1   	#a1 = ~a1
     	move $s7, $a1  	#s0 = a1 = ~a1. to accomodate since add_logical takes a0 and a1
     	addi $a1, $zero, 1	#a1 = 1
-	jal 	add_logical
-#    	jal add_logical  	#add a0 + a1
+	jal 	add_logical	#add a0 + a1  	
     	move $a1, $s7	#move a1 from s7
     	move $s7, $v0  	#move v0 (sum) to s7. s7 = sum
     	move $a0, $v1 	#move carry to become arg
-	jal 	add_logical
-#    	jal add_logical 	#add a0 + a1
+	jal 	add_logical	#add a0 + a1	
     	move $v1, $v0	#move v0 (sum) to v1 (hi)
     	move $v0, $s7	#move s7 (sum) to v0 (lo)
     
@@ -293,8 +291,7 @@ LOOP_MULT:
 	move $a0, $s1			   # a0 = H
 	move $a1, $t7			   # a1 = X
 
-	jal 	add_logical
-#	jal add_logical			   # H + X
+	jal 	add_logical		   # H + X
 	move $s1, $v0			   # v0 holds the result of the previous add_logical H = H + X	
 #	print_reg_int($v0)
 #	print_reg_int($s1)
@@ -445,6 +442,7 @@ LOOP_DIV:
 #	li $a2, '-'
 #	jal au_logical 
 	jal sub_logical
+	move $s2, $a0		#move R back to s2
 	move $a0, $t6
 	move $s5, $v0		# s5 = S = R - D
 	bge $s5, $zero, LABEL_1	#branch if S is greater than 0 
@@ -468,7 +466,8 @@ increment_i:
 
 div_signed:
 #store frame
-	addi	$sp, $sp, -60
+	addi	$sp, $sp, -64
+	sw	$t2, 64($sp)
 	sw	$s7, 60($sp)
 	sw	$s2, 56($sp)
 	sw	$s6, 52($sp)
@@ -481,7 +480,7 @@ div_signed:
 	sw	$a0, 24($sp)
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 60
+	addi	$fp, $sp, 64
 	move $s0, $a0	#s0 is a0, don't change it
 	move $s1, $a1	#s1 is a1, don't change it
 	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
@@ -494,20 +493,22 @@ div_signed:
 	move $s2, $v0		#s2 = Q
 	move $s3, $v1		#s3 = R
 	addi $t4, $zero, 31	# $t4 = 31
-	extract_nth_bit($s5, $a0, $t4) 	# $s5 = a0[31]
-	extract_nth_bit($s6, $a1, $t4)	# $s6 = a1[31]
-	xor $s7, $s5, $s6		# S = a0[31] XOR a1[31]
-	move $a0, $s2			# a0 = Q
+	extract_nth_bit($s5, $s0, $t4) 	# $s5 = a0[31]. s0 is a0 not changed
+	extract_nth_bit($s6, $s1, $t4)	# $s6 = a1[31]. s1 is a1 not changed
+	xor $s7, $s5, $s6		# $s7 = S = a0[31] XOR a1[31]
 	bne $s7, 1, find_r
+	move $a0, $s2			# a0 = Q
 	jal twos_complement		#find two's comp of Q if S is 1
 	move $s2, $v0			#set Q as 2's comp of Q
 	j find_r
 	
 find_r:
+	addi $t4, $zero, 31	# $t4 = 31
+	extract_nth_bit($s5, $s0, $t4) 	# $s5 = a0[31]. s0 is a0 not changed
 	move $s7, $s5  #S = a0[31]
 	bne $s7, 1, div_signed_end
-	move $a0, $s3
-	jal twos_complement
+	move $a0, $s3   # R to args reg
+	jal twos_complement # find 2's comp of R 
 	move $s3, $v0	#set R as 2's comp of R
 	j div_signed_end
 	
@@ -518,6 +519,7 @@ div_signed_end:
 	move $v1, $s3	#remainder
 	
 	#restore frame
+	lw	$t2, 64($sp)
 	lw	$s7, 60($sp)
 	lw	$s2, 56($sp)
 	lw	$s6, 52($sp)
@@ -530,7 +532,7 @@ div_signed_end:
 	lw	$a0, 24($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 60
+	addi	$sp, $sp, 64
 	
 	jr $ra
 
