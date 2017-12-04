@@ -158,37 +158,54 @@ exit_add_sub:	#end loop
 	
 #MULTIPLICATION ******************************************************************
 
+twos_complement_if_neg:
+    addi     $sp, $sp, -16
+    sw    $fp, 16($sp)
+    sw    $ra, 12($sp)
+    sw    $a0,  8($sp)
+    addi    $fp, $sp, 16 
+    bge     $a0, 0x0, twos_complement_if_neg_end #if a0 > 0, don't find the 2's comp
+    jal    twos_complement
+    j twos_complement_if_neg_end
+    
+    
+twos_complement_if_neg_end:
+
+    lw    $fp, 16($sp)
+    lw    $ra, 12($sp)
+    lw    $a0,  8($sp)
+    addi    $sp, $sp, 16
+
+    jr    $ra
+
+# $a0 is the number of which we are computing the complement    
 twos_complement:
-	
+
 #store frame
-	addi	$sp, $sp, -24
-	sw	$a2, 24($sp)
-	sw	$a0, 20($sp)
-	sw	$a1, 16($sp)
-	sw	$fp, 12($sp)
-	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 24      
+    addi    $sp, $sp, -24
+    sw    $fp, 24($sp)
+    sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
+    sw    $a1, 12($sp)
+    sw    $a2,  8($sp)
+    addi    $fp, $sp, 24
 
-
-    # $a0 is number to 2's complement 
-    # $v0 return 2's complement of $a0
-   	not $a0, $a0	#invert a0
-    	addi $a1, $zero, 1	#a1 = 1
-    	li	$a2, '+'
-	jal 	au_logical
-  #  	j add_logical   	#add a0 + a1. ~a0 + 1
+    not    $a0, $a0        # $a0 = ~$a0
+    addi     $a1, $zero, 1        # $a1 = 1
+    li    $a2, '+'
+    jal    au_logical        #add a0 + a1. ~a0 + 1
 
 #restore frame
-	lw	$a2, 24($sp)
-	lw	$a0, 20($sp)
-	lw	$a1, 16($sp)
-	lw	$fp, 12($sp)
-	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 24
-	
-	jr $ra
+    lw    $fp, 24($sp)
+    lw    $ra, 20($sp)
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
+    lw    $a2,  8($sp)
+    addi    $sp, $sp, 24
+    
+    jr    $ra
 
-twos_complement_if_neg:
+bit_replicator:
 
 #store frame
 	addi	$sp, $sp, -16
@@ -198,16 +215,24 @@ twos_complement_if_neg:
 	addi	$fp, $sp, 16
 	
 	
-	subi $a0, $zero, 25
-    	blt $a0, $zero, twos_complement #if a0 < 0, go to twos complement
-	
-	#restore frame
+    	beq $a0, $zero, zero_replicator
+    	lw $v0, subtraction #0xFFFFFFFF
+ 	j bit_replicator_end
+  
+ 
+
+bit_replicator_end:
+ #restore frame
 	lw	$a0, 16($sp)
 	lw	$fp, 12($sp)
 	lw 	$ra, 8($sp)
 	addi	$sp, $sp, 16
 	
 	jr $ra
+	
+zero_replicator:
+	lw $v0, addition #0x00000000
+	j bit_replicator_end
 
 twos_complement_64bit:
 
@@ -248,35 +273,7 @@ twos_complement_64bit:
 	addi	$sp, $sp, 28
 	
 	jr $ra
-bit_replicator:
-
-#store frame
-	addi	$sp, $sp, -16
-	sw	$a0, 16($sp)
-	sw	$fp, 12($sp)
-	sw 	$ra, 8($sp)
-	addi	$fp, $sp, 16
 	
-	
-    	beq $a0, $zero, zero_replicator
-    	lw $v0, subtraction #0xFFFFFFFF
- 	j bit_replicator_end
-  
- 
-
-bit_replicator_end:
- #restore frame
-	lw	$a0, 16($sp)
-	lw	$fp, 12($sp)
-	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 16
-	
-	jr $ra
-	
-zero_replicator:
-	lw $v0, addition #0x00000000
-	j bit_replicator_end
-
 mul_unsigned:
 
 #store frame
@@ -321,7 +318,6 @@ LOOP_MULT:
 	move $a0, $t4			   #a0 = t4 = 0th bit of L
 	jal bit_replicator 		   #replicate 0th bit 32 times 
 	move $t4, $v0 			   #t4 = R
-	move $t6, $a1			   #t6 = $a1 *might not be needed*
 	and $t7, $t3, $t4 		   # X = M & R 
 	move $a0, $s1			   # a0 = H
 	move $a1, $t7			   # a1 = X
@@ -419,7 +415,7 @@ mul_unsigned_end:
 	jr $ra
 	
 
-# DIVISION ***************************************************
+# DIVISION ****************************************************************************
 
 	
 div_unsigned:
@@ -431,7 +427,7 @@ div_unsigned:
 	sw	$t5, 44($sp)
 	sw	$t3, 40($sp)
 	sw	$t1, 36($sp)
-	sw	$t0, 32($sp)
+	sw	$s7, 32($sp)
 	sw	$a2, 28($sp)
 	sw	$a0, 24($sp)
 	sw	$s1, 20($sp)
@@ -441,13 +437,17 @@ div_unsigned:
 	addi	$fp, $sp, 52
 	
 	
-	addi $t0, $zero, 0 	# $t0 = I = 0
+	
+	addi $s7, $zero, 0 	# $t0 = I = 0
+#	print_reg_int($t0)
 	addi $t1, $zero, 0	# $t1 = R = 0
 	move $s0, $a0
 	move $s1, $a1
+#	print_reg_int($t0)
 	j LOOP_DIV
 	
 LOOP_DIV:
+#	print_reg_int($t0)
 	addi $t3, $zero, 1	# $t3 = 1
 	sllv $t1, $t1, $t3, 	# R = R << 1
 	addi $t3, $zero, 31	# $t3 = 31
@@ -473,14 +473,15 @@ LABEL_1:
 
 		
 increment_i:
- 	addi $t0, $t0, 1	# increment i
+ 	addi $s7, $s7, 1	# increment i
 	addi $t3, $zero, 32	# $t3 = 32
-	beq $t0, $t3, div_unsigned_end 	#end loop if i is 32
+#	print_reg_int($t0)
+	beq $s7, 32, div_unsigned_end 	#end loop if i is 32
 	j LOOP_DIV			#else loop again
 
 
 div_signed:
-
+	
 #store frame
 	addi	$sp, $sp, -60
 	sw	$t7, 60($sp)
@@ -496,7 +497,6 @@ div_signed:
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
 	addi	$fp, $sp, 60
-
 	move $t0, $a0	#t0 is a0, don't change it
 	move $t1, $a1	#t1 is a1, don't change it
 	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
@@ -551,6 +551,7 @@ div_signed_end:
 
 
 div_unsigned_end:
+		
 	move $v1, $t1	#remainder
 	move $v0, $a0	#quotient
 			
@@ -560,7 +561,7 @@ div_unsigned_end:
 	lw	$t5, 44($sp)
 	lw	$t3, 40($sp)
 	lw	$t1, 36($sp)
-	lw	$t0, 32($sp)
+	lw	$s7, 32($sp)
 	lw	$a2, 28($sp)
 	lw	$a0, 24($sp)
 	lw	$s1, 20($sp)
