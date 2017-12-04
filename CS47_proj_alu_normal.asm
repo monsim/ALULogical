@@ -38,7 +38,7 @@ MUL:
 	jr	$ra
 
 DIV:
-#	div $v0, $a0
-#	mflo $v0
-#	mfhi $v1
+	div $v0, $a0
+	mflo $v0
+	mfhi $v1
 	jr	$ra

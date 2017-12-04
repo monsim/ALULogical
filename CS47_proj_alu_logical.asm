@@ -37,10 +37,14 @@ au_logical:
 	beq $a2, '+', add_logical
 	beq $a2, '-', sub_logical
 	beq $a2, '*', mul_logical
-	beq $a2, '/', DIV
+	beq $a2, '/', div_logical
 	
 mul_logical:
 	jal mul_signed
+	j exit
+	
+div_logical:
+	jal div_signed
 	j exit
 
 #ADD:
@@ -62,15 +66,15 @@ mul_logical:
 #	jr $ra 
 #	jr	$ra
 
-DIV:
-	lw	$a0, 28($sp)
-	lw	$a2, 24($sp)
-	lw	$a1, 20($sp)
-	lw	$a3, 16($sp)
-	lw	$fp, 12($sp)
-	lw 	$ra, 8($sp)
-	addi	$sp, $sp, 28
-	jr $ra 
+#DIV:
+#	lw	$a0, 28($sp)
+#	lw	$a2, 24($sp)
+#	lw	$a1, 20($sp)
+#	lw	$a3, 16($sp)
+#	lw	$fp, 12($sp)
+#	lw 	$ra, 8($sp)
+#	addi	$sp, $sp, 28
+#	jr $ra 
 #	jr	$ra
 
 #ADDITION ********************************
@@ -130,7 +134,7 @@ LOOP_ADD:
 	or $a3, $t7, $t6  # a3 = t7 + t6. a3 = C(A XOR B) + AB. $a3 = C
 	
 	# S[I] = Y
-	insert_to_nth_bit($t8, $t0, $t9, $t5) #t8 is sum. t0 is i. t9 is y. it is ok to overwrite t4
+	insert_to_nth_bit($t8, $t0, $t9, $t5) #t8 is sum. t0 is i. t9 is y. it is ok to overwrite t5
 	addi $t0, $t0, 1 #increment loop counter. I = I + 1	
 	beq $t0, 32, exit_add_sub 	#end loop if t0 >= t1. if counter = 31 				
 	j LOOP_ADD
@@ -414,8 +418,165 @@ mul_unsigned_end:
 	
 	jr $ra
 	
+
+# DIVISION ***************************************************
+
+	
+div_unsigned:
+
+#store frame
+	addi	$sp, $sp, -52
+	sw	$t6, 52($sp)
+	sw	$t4, 48($sp)
+	sw	$t5, 44($sp)
+	sw	$t3, 40($sp)
+	sw	$t1, 36($sp)
+	sw	$t0, 32($sp)
+	sw	$a2, 28($sp)
+	sw	$a0, 24($sp)
+	sw	$s1, 20($sp)
+	sw	$s0, 16($sp)
+	sw	$fp, 12($sp)
+	sw 	$ra, 8($sp)
+	addi	$fp, $sp, 52
+	
+	
+	addi $t0, $zero, 0 	# $t0 = I = 0
+	addi $t1, $zero, 0	# $t1 = R = 0
+	move $s0, $a0
+	move $s1, $a1
+	j LOOP_DIV
+	
+LOOP_DIV:
+	addi $t3, $zero, 1	# $t3 = 1
+	sllv $t1, $t1, $t3, 	# R = R << 1
+	addi $t3, $zero, 31	# $t3 = 31
+	extract_nth_bit($t4, $a0, $t3) # $t4 = Q[31]
+	insert_to_nth_bit($t1, $zero, $t4, $t5)
+	addi $t3, $zero, 1
+	sllv $a0, $a0, $t3 	# Q = Q << 1
+	move $t6, $a0
+	move $a0, $t1		#move R to a0. D is already a1
+	li $a2, '-'
+	jal au_logical 
+	move $a0, $t6
+	move $t5, $v0		#S = R - D
+	bge $t5, $zero, LABEL_1	#branch if S is greater than 0 
+	j increment_i
+
+				
+LABEL_1:
+	move $t1, $t5 		# R = S
+	addi $t3, $zero, 1	# $t3 = 1
+	insert_to_nth_bit($a0, $zero, $t3, $t6)	#insert 1 into LSB of Q 
+	j increment_i
+
+		
+increment_i:
+ 	addi $t0, $t0, 1	# increment i
+	addi $t3, $zero, 32	# $t3 = 32
+	beq $t0, $t3, div_unsigned_end 	#end loop if i is 32
+	j LOOP_DIV			#else loop again
+
+
+div_signed:
+
+#store frame
+	addi	$sp, $sp, -60
+	sw	$t7, 60($sp)
+	sw	$t2, 56($sp)
+	sw	$t6, 52($sp)
+	sw	$t4, 48($sp)
+	sw	$t5, 44($sp)
+	sw	$t3, 40($sp)
+	sw	$t1, 36($sp)
+	sw	$t0, 32($sp)
+	sw	$a1, 28($sp)
+	sw	$a0, 24($sp)
+	sw	$fp, 12($sp)
+	sw 	$ra, 8($sp)
+	addi	$fp, $sp, 60
+
+	move $t0, $a0	#t0 is a0, don't change it
+	move $t1, $a1	#t1 is a1, don't change it
+	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
+	move $t2, $v0	#N1
+	move $a0, $t1	#put t1 in arg position
+	jal twos_complement_if_neg	#find two's comp of a1
+	move $a1, $v0	#a1 is 2's complement N0
+	move $a0, $t2	#a0 is 2's complement N1
+	jal div_unsigned 	#neither a0 or a1 are signed now, safe to do
+	move $t2, $v0		#Q
+	move $t3, $v1		#R
+	addi $t4, $zero, 31	# $t4 = 31
+	extract_nth_bit($t5, $t0, $t4) 	# $t5 = a0[31]
+	extract_nth_bit($t6, $t1, $t4)	# $t6 = a1[31]
+	xor $t7, $t5, $t6		# S = a0[31] XOR a1[31]
+	move $a0, $t2			# a0 = Q
+	bne $t7, 1, find_r
+	jal twos_complement		#find two's comp of Q if S is 1
+	move $t2, $v0			#set Q as 2's comp of Q
+	j find_r
+	
+find_r:
+	move $t7, $t5  #S = a0[31]
+	bne $t7, 1, div_signed_end
+	move $a0, $t3
+	jal twos_complement
+	move $t3, $v0	#set R as 2's comp of R
+	j div_signed_end
 	
 
+div_signed_end:
+
+	move $v0, $t2
+	move $v1, $t3
+	
+	#restore frame
+	lw	$t7, 60($sp)
+	lw	$t2, 56($sp)
+	lw	$t6, 52($sp)
+	lw	$t4, 48($sp)
+	lw	$t5, 44($sp)
+	lw	$t3, 40($sp)
+	lw	$t1, 36($sp)
+	lw	$t0, 32($sp)
+	lw	$a1, 28($sp)
+	lw	$a0, 24($sp)
+	lw	$fp, 12($sp)
+	lw 	$ra, 8($sp)
+	addi	$sp, $sp, 60
+	
+	jr $ra
+
+
+div_unsigned_end:
+	move $v1, $t1	#remainder
+	move $v0, $a0	#quotient
+			
+	#restore frame
+	lw	$t6, 52($sp)
+	lw	$t4, 48($sp)
+	lw	$t5, 44($sp)
+	lw	$t3, 40($sp)
+	lw	$t1, 36($sp)
+	lw	$t0, 32($sp)
+	lw	$a2, 28($sp)
+	lw	$a0, 24($sp)
+	lw	$s1, 20($sp)
+	lw	$s0, 16($sp)
+	lw	$fp, 12($sp)
+	lw 	$ra, 8($sp)
+	addi	$sp, $sp, 52
+	
+	jr $ra
+		
+												
+				
+					
+							
+
+# EXIT ALU_LOGICAL ************************************************
 exit:	#end loop
 	
 	#restore frame
