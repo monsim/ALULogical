@@ -486,7 +486,7 @@ div_signed:
 	move $s1, $a1	#s1 is a1, don't change it
 	jal twos_complement_if_neg	#turn a0 is 2's comp a0 if neg
 	move $t2, $v0	#N1
-	move $a0, $s1	#put s1 in arg position
+	move $a0, $a1	#put a1 in arg position
 	jal twos_complement_if_neg	#find two's comp of a1
 	move $a1, $v0	#a1 is 2's complement N2
 	move $a0, $t2	#a0 is 2's complement N1
@@ -494,8 +494,8 @@ div_signed:
 	move $s2, $v0		#s2 = Q
 	move $s3, $v1		#s3 = R
 	addi $t4, $zero, 31	# $t4 = 31
-	extract_nth_bit($s5, $s0, $t4) 	# $t5 = a0[31]
-	extract_nth_bit($s6, $s1, $t4)	# $t6 = a1[31]
+	extract_nth_bit($s5, $a0, $t4) 	# $s5 = a0[31]
+	extract_nth_bit($s6, $a1, $t4)	# $s6 = a1[31]
 	xor $s7, $s5, $s6		# S = a0[31] XOR a1[31]
 	move $a0, $s2			# a0 = Q
 	bne $s7, 1, find_r
