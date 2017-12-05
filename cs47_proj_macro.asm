@@ -8,13 +8,11 @@
 #shift $regS by $regT and mask to $regD
 
 
-addi    $regD, $zero, 1 	#ours
+addi    $regD, $zero, 1 	
 sllv    $regD, $regD, $regT
 and 	$regD, $regD, $regS
 srlv    $regD, $regD, $regT
 
-#srlv $regD, $regS, $regT #shift right until the bit you want to extract is in the LSB
-#and $regD, $regS, 0x1 	#and by 00000...01 to extract last bit. 0x1 is mask
 
 .end_macro 
 

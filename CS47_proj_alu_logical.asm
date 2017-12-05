@@ -22,7 +22,6 @@ subtraction: .word 0xFFFFFFFF
 
 
 au_logical:
-# TBD: Complete it
 	
 	#store frame
 	addi	$sp, $sp, -28
@@ -61,7 +60,6 @@ add_logical:
 	
 	lw $a2, addition
 	jal add_sub_logical
-#	move $v1, $a3 	#move a3 to v1. move carry to v1
 	j exit
 
 #SUBTRACTION ******************************
@@ -123,8 +121,6 @@ LOOP_ADD:
 	addi $t0, $t0, 1 #increment loop counter. I = I + 1	
 	beq $t0, 32, exit_add_sub 	#end loop if t0 >= t1. if counter = 31 				
 	j LOOP_ADD
-	#bne $t0, $t1, LOOP
-	#j exit_add_sub
 	
 	
 exit_add_sub:	#end loop
@@ -144,13 +140,16 @@ exit_add_sub:	#end loop
 #MULTIPLICATION ******************************************************************
 
 twos_complement_if_neg:
+#store frame
     addi     $sp, $sp, -16
     sw    $fp, 16($sp)
     sw    $ra, 12($sp)
     sw    $a0,  8($sp)
     addi    $fp, $sp, 16 
+    
+    
     move    $v0 , $a0 
-    bge     $a0, 0x0, twos_complement_if_neg_end #if a0 > 0, don't find the 2's comp
+    bge     $a0, 0, twos_complement_if_neg_end #if a0 > 0, don't find the 2's comp
     jal    twos_complement
     j twos_complement_if_neg_end
     
@@ -158,14 +157,14 @@ twos_complement_if_neg:
     # jumps to end 
 twos_complement_if_neg_end:
 	
+#restore frame
     lw    $fp, 16($sp)
     lw    $ra, 12($sp)
     lw    $a0,  8($sp)
     addi    $sp, $sp, 16
 
     jr    $ra
-
-# $a0 is the number of which we are computing the complement    
+ 
 twos_complement:
 
 #store frame
@@ -293,30 +292,19 @@ LOOP_MULT:
 
 	jal 	add_logical		   # H + X
 	move $s1, $v0			   # v0 holds the result of the previous add_logical H = H + X	
-#	print_reg_int($v0)
-#	print_reg_int($s1)
 	addi $t6, $zero, 1		   # $t6 = 1
 	addi $t4, $zero, 31		   # $t4 = 31
-	#srlv $s2, $s2, $t6		   # L = L >> 1
-	srl $s2, $s2 , 1
+	srl $s2, $s2 , 1			# L = L >> 1
 	extract_nth_bit($t8, $s1, $zero)   # $t8 = H[0]
 	insert_to_nth_bit($s2, $t4, $t8, $t9)  # L[31] = H[0]
-	
-	
-	# srlv $s1, $s1, $t6		   # H = H >> 1
-	srl $s1, $s1 , 1
-#	print_reg_int($s1)
+	srl $s1, $s1 , 1			# H = H >> 1
 	addi $s0, $s0, 1		   # increment loop counter. I = I + 1
-#	print_reg_int($s2)
-#	print_reg_int($s1)
 	beq $s0, 32, mul_unsigned_end	   #if I == 32 end of loop and exit
 	j LOOP_MULT			   #loop again otherwise
 	
 mul_unsigned_end:
 	#lo to $v0 and hi to $v1
 	
-#	print_reg_int($s2)
-#s	print_reg_int($s1)
 	move $v0, $s2		#s2 is lo
 	move $v1, $s1		#s1 is hi
 	
@@ -350,8 +338,6 @@ mul_signed:
 	sw	$fp, 12($sp)
 	sw 	$ra, 8($sp)
 	addi	$fp, $sp, 44
-
-
 #a0 : multiplicand
 #a1 : multiplier
 	move $s4, $a0	#a0 is N1. s4 is original a0, not to be changed
@@ -362,17 +348,14 @@ mul_signed:
 	jal twos_complement_if_neg
 	move $a1, $v0		#two's comp N2 into N2
 	move $a0, $s3		#move N1 back to a0
-	jal mul_unsigned
-	
-	addi $t7, $zero, 31
-	
+	jal mul_unsigned	
+	addi $t7, $zero, 31	
 	move $a0, $v0 	#a0 = Rlo
 	move $a1, $v1	#a1 = Rhi
+	extract_nth_bit($s2, $s4, $t7)	#$s2 = $s4[31]. s4 is original a0
+	extract_nth_bit($s1, $s5, $t7)	#$s1 = $s5[31]. s5 is original a1
 	
-	extract_nth_bit($s2, $s4, $t7)	#$t9 = $s4[31]. s4 is original a0
-	extract_nth_bit($s1, $s5, $t7)	#$t8 = $s5[31]. s5 is original a1
-	
-	xor $s6, $s2, $s1		#t9 XOR t8. s6 = S
+	xor $s6, $s2, $s1		#s2 XOR s1. s6 = S
 	bne $s6, 1, mul_signed_end
 	
 	jal twos_complement_64bit	#if S = 1 find two's comp of Rhi and Rlo
@@ -420,17 +403,13 @@ div_unsigned:
 	sw 	$ra, 8($sp)
 	addi	$fp, $sp, 52
 	
-	
-	
 	addi $s7, $zero, 0 	# s7  = I = 0
 	addi $s2, $zero, 0	# $s2 = R = 0
 	move $s0, $a0		#dividend (Q)
 	move $s1, $a1		#divisor (D)
-#	print_reg_int($t0)
 	j LOOP_DIV
-	
+
 LOOP_DIV:
-#	addi $t3, $zero, 1	# $t3 = 1
 	sll $s2, $s2, 1 	# R = R << 1
 	addi $t3, $zero, 31	# $t3 = 31
 	extract_nth_bit($t4, $s0, $t3) # $t4 = Q[31]
@@ -439,8 +418,6 @@ LOOP_DIV:
 	sll $s0, $s0, 1 	# Q = Q << 1
 	move $t6, $a0
 	move $a0, $s2		#move R to a0. D is already a1
-#	li $a2, '-'
-#	jal au_logical 
 	jal sub_logical
 	move $s2, $a0		#move R back to s2
 	move $a0, $t6
@@ -458,8 +435,6 @@ LABEL_1:
 		
 increment_i:
  	addi $s7, $s7, 1	# increment i
-#	addi $t3, $zero, 32	# $t3 = 32
-#	print_reg_int($t0)
 	beq $s7, 32, div_unsigned_end 	#end loop if i is 32
 	j LOOP_DIV			#else loop again
 
